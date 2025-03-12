@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Mr.Kranch Mobile</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            touch-action: manipulation;
+            margin: 0;
+            padding: 0;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            background: #2c3e50;
+            color: white;
+            line-height: 1.4;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .game-container {
+            padding: 10px;
+            max-width: 600px;
+            margin: 0 auto;
+            width: 100%;
+            flex-grow: 1;
+        }
+
+        h1 {
+            font-size: 1.2rem;
+            text-align: center;
+            margin: 0.5rem 0;
+            color: #ecf0f1;
+            line-height: 1.3;
+        }
+
+        .status-bar {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.9rem;
+            margin: 0.8rem 0;
+            padding: 0 5px;
+        }
+
+        .boss-container {
+            background: #34495e;
+            border-radius: 10px;
+            padding: 1rem;
+            margin: 1rem 0;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        }
+
+        .player-cards {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 8px;
+            margin: 1rem 0;
+        }
+
+        .card {
+            background: #3498db;
+            padding: 0.8rem;
+            border-radius: 8px;
+            text-align: center;
+            min-height: 100px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            transition: transform 0.1s;
+        }
+
+        .card:active {
+            transform: scale(0.98);
+        }
+
+        .card.disabled {
+            background: #7f8c8d !important;
+            opacity: 0.7;
+        }
+
+        .card.rare { background: #9b59b6; }
+        .card.epic { background: #e67e22; }
+
+        .card h3 {
+            font-size: 0.95rem;
+            margin-bottom: 0.3rem;
+            word-break: break-word;
+        }
+
+        .game-log {
+            height: 120px;
+            overflow-y: auto;
+            background: rgba(0,0,0,0.3);
+            border-radius: 8px;
+            padding: 0.8rem;
+            margin: 1rem 0;
+            font-size: 0.85rem;
+        }
+
+        button {
+            width: 100%;
+            padding: 12px;
+            background: #27ae60;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            margin-top: 0.5rem;
+            cursor: pointer;
+        }
+
+        @media (min-width: 480px) {
+            .player-cards {
+                grid-template-columns: repeat(3, 1fr);
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <h1>Битва игрушек Mr.Kranch 🧸 vs собаки-улитожители 🐶</h1>
+        
+        <div class="status-bar">
+            <div>🔸 Уровень: <span id="level">1</span></div>
+            <div>🧸 Собрано: <span id="collected">5</span>/15</div>
+        </div>
+        
+        <div class="boss-container">
+            <h2>Питомец: <span id="boss-name">Овчарка</span></h2>
+            <div>❤ Здоровье: <span id="boss-health">100</span></div>
+            <div>⚡ Атака: <span id="boss-attack">15</span></div>
+        </div>
+
+        <div class="player-cards" id="cards-container"></div>
+        
+        <div class="game-log" id="game-log"></div>
+        
+        <button onclick="resetGame()">🔄 Новая игра</button>
+    </div>
+
+    <script>
+        // Игровые данные
+        const allCards = [
+            { name: 'Хамелеон', attack: 8, health: 25, rarity: 'common' },
+            { name: 'Слон', attack: 6, health: 20, rarity: 'common' },
+            { name: 'Гантель', attack: 12, health: 15, rarity: 'rare' },
+            { name: 'Мяч', attack: 4, health: 30, rarity: 'rare' },
+            { name: 'Арбуз', attack: 10, health: 40, rarity: 'epic' },
+            { name: 'Сова', attack: 15, health: 18, rarity: 'epic' },
+            { name: 'Птерозавр', attack: 20, health: 50, rarity: 'epic' },
+            { name: 'Мышка', attack: 9, health: 25, rarity: 'rare' },
+            { name: 'Лама', attack: 7, health: 35, rarity: 'common' },
+            { name: 'Рулька', attack: 10, health: 30, rarity: 'rare' },
+            { name: 'Лосось', attack: 14, health: 22, rarity: 'epic' },
+            { name: 'Авокадо', attack: 5, health: 40, rarity: 'common' },
+            { name: 'Собачка', attack: 8, health: 28, rarity: 'rare' },
+            { name: 'Кольцо', attack: 18, health: 15, rarity: 'epic' },
+            { name: 'Ослик', attack: 12, health: 35, rarity: 'common' }
+        ].map(c => ({
+            ...c,
+            name: c.name + ' MrKranch',
+            maxHealth: c.health
+        }));
+
+        const bosses = [
+            { name: 'Овчарка', health: 100, attack: 10 },
+            { name: 'Далматин', health: 150, attack: 15 },
+            { name: 'Кане Корсо', health: 200, attack: 20 }
+        ];
+
+        // Игровое состояние
+        let gameState = {
+            level: 1,
+            boss: null,
+            cards: [],
+            collected: []
+        };
+
+        // Инициализация игры
+        function initGame() {
+            gameState = {
+                level: 1,
+                boss: JSON.parse(JSON.stringify(bosses[0])),
+                collected: shuffle([...allCards]).slice(0,5)
+                    .map(c => ({...c, health: c.maxHealth})),
+                cards: []
+            };
+            gameState.cards = gameState.collected.map(c => ({...c}));
+            updateGame();
+        }
+
+        // Обновление интерфейса с задержкой для мобильных устройств
+        function safeUpdate() {
+            setTimeout(updateGame, 50);
+        }
+
+        function updateGame() {
+            try {
+                // Обновляем текст
+                document.getElementById('level').textContent = gameState.level;
+                document.getElementById('boss-name').textContent = gameState.boss.name;
+                document.getElementById('boss-health').textContent = gameState.boss.health;
+                document.getElementById('boss-attack').textContent = gameState.boss.attack;
+                document.getElementById('collected').textContent = gameState.collected.length;
+
+                // Отрисовываем карты
+                const container = document.getElementById('cards-container');
+                container.innerHTML = '';
+                
+                gameState.cards.forEach((card, index) => {
+                    const cardEl = document.createElement('div');
+                    cardEl.className = `card ${card.rarity}${
+                        card.health <= 0 ? ' disabled' : ''
+                    }`;
+                    cardEl.innerHTML = `
+                        <h3>${card.name}</h3>
+                        <p>⚔️ ${card.attack}</p>
+                        <p>❤ ${Math.max(card.health, 0)}</p>
+                    `;
+                    
+                    if(card.health > 0) {
+                        cardEl.onclick = () => attack(index);
+                        cardEl.ontouchstart = (e) => {
+                            e.preventDefault();
+                            attack(index);
+                        };
+                    }
+                    
+                    container.appendChild(cardEl);
+                });
+
+                // Автопрокрутка лога
+                const log = document.getElementById('game-log');
+                log.scrollTop = log.scrollHeight;
+            } catch(e) {
+                console.error('Ошибка обновления:', e);
+            }
+        }
+
+        function attack(cardIndex) {
+            try {
+                const card = gameState.cards[cardIndex];
+                if(!card || card.health <= 0) return;
+
+                // Атака игрока
+                gameState.boss.health -= card.attack;
+                addLog(`⚡ ${card.name} атакует (${card.attack})`);
+
+                if(gameState.boss.health <= 0) {
+                    handleBossDefeat();
+                } else {
+                    handleBossAttack();
+                }
+                
+                safeUpdate();
+            } catch(e) {
+                console.error('Ошибка атаки:', e);
+            }
+        }
+
+        function handleBossDefeat() {
+            if(gameState.level === 3) {
+                addLog('🎉 Всем питомцам подобрана игрушка!');
+                return;
+            }
+            
+            addLog(`🏆 Уровень ${gameState.level} пройден!`);
+            gameState.level++;
+            gameState.boss = JSON.parse(JSON.stringify(bosses[gameState.level - 1]));
+            
+            const newCards = shuffle(allCards
+                .filter(c => !gameState.collected.some(cc => cc.name === c.name)))
+                .slice(0,2)
+                .map(c => ({...c}));
+                
+            gameState.collected.push(...newCards);
+            gameState.cards = gameState.collected.map(c => ({...c}));
+        }
+
+        function handleBossAttack() {
+            const aliveCards = gameState.cards.filter(c => c.health > 0);
+            if(aliveCards.length === 0) {
+                addLog('💀 Все игрушки сломаны!');
+                return;
+            }
+            
+            const target = aliveCards[Math.floor(Math.random() * aliveCards.length)];
+            target.health -= gameState.boss.attack;
+            
+            const messages = [
+                `🔥 ${target.name} повреждена!`,
+                `💥 ${gameState.boss.name} кусает ${target.name}!`,
+                `🦴 ${target.name} теряет кусочек!`
+            ];
+            
+            if(target.health <= 0) {
+                addLog(`☠️ ${target.name} уничтожена!`);
+                gameState.cards = gameState.cards.filter(c => c.health > 0);
+            } else {
+                addLog(messages[Math.floor(Math.random() * messages.length)]);
+            }
+        }
+
+        // Вспомогательные функции
+        function addLog(message) {
+            const log = document.getElementById('game-log');
+            log.innerHTML += `<div>► ${message}</div>`;
+        }
+
+        function shuffle(arr) {
+            for(let i = arr.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [arr[i], arr[j]] = [arr[j], arr[i]];
+            }
+            return arr;
+        }
+
+        function resetGame() {
+            document.getElementById('game-log').innerHTML = '';
+            initGame();
+        }
+
+        // Инициализация при загрузке
+        document.addEventListener('DOMContentLoaded', () => {
+            try {
+                initGame();
+            } catch(e) {
+                console.error('Ошибка инициализации:', e);
+                alert('Ошибка загрузки игры!');
+            }
+        });
+    </script>
+</body>
+</html>
